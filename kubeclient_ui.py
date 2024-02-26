@@ -8,6 +8,7 @@ from kubernetes import client, config
 
 def loadTable(table):
     table.setColumnCount(3) # FIXME: right now hardcoded at 3
+    table.setColumnWidth(1, 340)
     table.setHorizontalHeaderLabels(["Namespace", "Name", "IP"])
     config.load_kube_config(config_file='./kind.kubeconfig')
     
@@ -25,8 +26,24 @@ def loadTable(table):
         table.setItem(idx, 0, namespace)
         table.setItem(idx, 1, name)
         table.setItem(idx, 2, ip)
+
+    table.setSortingEnabled(True)
+
+def populateTable(index):
+    print(f"selected index is {index}, {window.comboBox.currentText()}")
+    currNamespace = window.comboBox.currentText()
+#    table.clear()
+#    # TODO: QTableView is probably better for structured data but needs to define model.
+#    for idx, item in enumerate(ret.items):
+#        if(currNamespace == item.metadata.namespace)
+#            namespace = QTableWidgetItem(item.metadata.namespace)
+#            name = QTableWidgetItem(item.metadata.name)
+#            ip = QTableWidgetItem(item.status.pod_ip)
+#            table.setItem(idx, 0, namespace)
+#            table.setItem(idx, 1, name)
+#            table.setItem(idx, 2, ip)
+#    table.setSortingEnabled(True)
     
-    # table.show()
 
 if __name__ == "__main__":
     ui_file_name = "trial-screen.ui"
@@ -46,6 +63,7 @@ if __name__ == "__main__":
         sys.exit(-1)
     window.show()
     window.comboBox.addItems(["ALL","default", "kube-system"])
+    window.comboBox.currentIndexChanged.connect(populateTable)
     loadTable(window.tableWidget)
     sys.exit(app.exec())
 
