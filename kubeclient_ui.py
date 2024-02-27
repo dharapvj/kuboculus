@@ -6,44 +6,48 @@ from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile
 from kubernetes import client, config
 
-def loadTable(table):
+#TODO: the global variable means we can only have one call at a time?
+pods =[]
+
+def populateTable(index):
+    currNamespace = window.comboBox.currentText()
+    print(f"selected index is {index}, {currNamespace}")
+
+    table = window.tableWidget
     table.setColumnCount(3) # FIXME: right now hardcoded at 3
     table.setColumnWidth(1, 340)
     table.setHorizontalHeaderLabels(["Namespace", "Name", "IP"])
+    table.clear()
+    print(f"about to enumerate {len(pods)}")
+#    # TODO: QTableView is probably better for structured data but needs to define model.
+
+    # TODO: filter the pods then use filtered collection instead also to set row count
+    table.setRowCount(len(pods))
+    for idx, item in enumerate(pods):
+        print("enumerating")
+        print(f"{currNamespace}, {item.metadata.namespace}")
+        if currNamespace == "ALL" or currNamespace == item.metadata.namespace:
+            print("adding data in row")
+            namespace = QTableWidgetItem(item.metadata.namespace)
+            name = QTableWidgetItem(item.metadata.name)
+            ip = QTableWidgetItem(item.status.pod_ip)
+            table.setItem(idx, 0, namespace)
+            table.setItem(idx, 1, name)
+            table.setItem(idx, 2, ip)
+    table.setSortingEnabled(True)
+    
+def loadTable(table):
+    global pods
     config.load_kube_config(config_file='./kind.kubeconfig')
     
     v1 = client.CoreV1Api()
     print("Listing pods with their IPs:")
     ret = v1.list_pod_for_all_namespaces(watch=False)
+    pods = ret.items
     print("Got list")
-    table.setRowCount(len(ret.items))
-    
-    # TODO: QTableView is probably better for structured data but needs to define model.
-    for idx, item in enumerate(ret.items):
-        namespace = QTableWidgetItem(item.metadata.namespace)
-        name = QTableWidgetItem(item.metadata.name)
-        ip = QTableWidgetItem(item.status.pod_ip)
-        table.setItem(idx, 0, namespace)
-        table.setItem(idx, 1, name)
-        table.setItem(idx, 2, ip)
+    populateTable(-1)
 
-    table.setSortingEnabled(True)
 
-def populateTable(index):
-    print(f"selected index is {index}, {window.comboBox.currentText()}")
-    currNamespace = window.comboBox.currentText()
-#    table.clear()
-#    # TODO: QTableView is probably better for structured data but needs to define model.
-#    for idx, item in enumerate(ret.items):
-#        if(currNamespace == item.metadata.namespace)
-#            namespace = QTableWidgetItem(item.metadata.namespace)
-#            name = QTableWidgetItem(item.metadata.name)
-#            ip = QTableWidgetItem(item.status.pod_ip)
-#            table.setItem(idx, 0, namespace)
-#            table.setItem(idx, 1, name)
-#            table.setItem(idx, 2, ip)
-#    table.setSortingEnabled(True)
-    
 
 if __name__ == "__main__":
     ui_file_name = "trial-screen.ui"
