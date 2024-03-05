@@ -1,4 +1,6 @@
 import sys
+import datetime as dt
+from humanize import naturaldelta
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QApplication, QTableWidget,
                                QTableWidgetItem, QListWidgetItem)
@@ -7,17 +9,94 @@ from PySide6.QtCore import QFile
 from kubernetes import client, config
 
 #TODO: the global variable means we can only have one call at a time?
-# pods =[]
-# deployments = []
-
 # We should have a tuple .. Name of column and mapped attribute so that whole process can become dynamic
 resouceMapping = {
     "Pods": {
-        "columns": ["Namespace", "Name", "IP"],
+        "columns": [
+            {
+                "name": "Namespace",
+                "accessor": "item.metadata.namespace"
+            }, {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Node",
+                "accessor": "item.spec.node_name"
+            }, {
+                "name": "IP",
+                "accessor": "item.status.pod_ip"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
         "data": []
     },
     "Deployments": {
-        "columns": ["Namespace", "Name", "replicas"],
+        "columns": [
+            {
+                "name": "Namespace",
+                "accessor": "item.metadata.namespace"
+            }, {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Replicas",
+                "accessor": "str(item.status.ready_replicas)+\"/\"+str(item.status.replicas)"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
+        "data": []
+    },
+    "ConfigMaps": {
+        "columns": [
+            {
+                "name": "Namespace",
+                "accessor": "item.metadata.namespace"
+            }, {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Keys",
+                "accessor": "len(item.data)"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
+        "data": []
+    },
+    "Secrets": {
+        "columns": [
+            {
+                "name": "Namespace",
+                "accessor": "item.metadata.namespace"
+            }, {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Keys",
+                "accessor": "len(item.data)"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
+        "data": []
+    },
+    "Daemonsets": {
+        "columns": [
+            {
+                "name": "Namespace",
+                "accessor": "item.metadata.namespace"
+            }, {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Node Selector",
+                "accessor": "item.spec.template.spec.node_selector"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
         "data": []
     }
 }
@@ -31,6 +110,7 @@ resouceMapping = {
 # OR Status:  container_statuses[0].ready / started
 namespaces = []
 
+# AGE calculation = https://github.com/kubernetes/apimachinery/blob/release-1.29/pkg/util/duration/duration.go#L48
 
 def repopulateTable(resourceType):
     print(f"list selection changed to {resourceType}")
@@ -41,13 +121,14 @@ def populateTable(index):
 
     table = window.resourceTable
     resourceType = window.resourceTypeList.currentItem().text()
-    print(f"whats hot: {resourceType}, {index}")
-    cols = resouceMapping[resourceType]['columns']
-    table.setColumnCount(len(cols))
+    # print(f"Page: {resourceType}, NS Index: {index}")
+    # print(f"Page: { (resouceMapping[resourceType]).get('columns')}")
+    colNames = [ col['name'] for col in (resouceMapping[resourceType]).get('columns')] 
+    table.setColumnCount(len(colNames))
+    # TODO: default column width also move to mapping
     table.setColumnWidth(1, 340)
     table.setRowCount(0)
-    table.setHorizontalHeaderLabels(cols)
-    # print(f"about to enumerate {deployments[0]}")
+    table.setHorizontalHeaderLabels(colNames)
     # TODO: QTableView is probably better for structured data but needs to define model.
 
     if currNamespace != "ALL":
@@ -56,22 +137,14 @@ def populateTable(index):
         filterdList = resouceMapping[resourceType]['data']
     table.setRowCount(len(filterdList))
 
+    if resourceType == "Daemonsets":
+        print(f"about to enumerate {filterdList[0]}")
+
     for idx, item in enumerate(filterdList):
-        match resourceType:
-            case "Pods":
-                namespace = QTableWidgetItem(item.metadata.namespace)
-                name = QTableWidgetItem(item.metadata.name)
-                ip = QTableWidgetItem(item.status.pod_ip)
-                table.setItem(idx, 0, namespace)
-                table.setItem(idx, 1, name)
-                table.setItem(idx, 2, ip)
-            case "Deployments":
-                namespace = QTableWidgetItem(item.metadata.namespace)
-                name = QTableWidgetItem(item.metadata.name)
-                replicas = QTableWidgetItem(str(item.status.ready_replicas)+"/"+str(item.status.replicas))
-                table.setItem(idx, 0, namespace)
-                table.setItem(idx, 1, name)
-                table.setItem(idx, 2, replicas)
+        # print(f"item ns? {eval('item.metadata.namespace')}" )
+        for colIndex, x in enumerate((resouceMapping[resourceType]).get('columns')):
+            # print(f"{idx}, {colIndex}, {x}")
+            table.setItem(idx, colIndex, QTableWidgetItem(str(eval(x['accessor']))))
     table.setSortingEnabled(True)
 
 def loadNS():
@@ -96,8 +169,12 @@ def loadTable(table, resourceType):
             ret = v1.list_pod_for_all_namespaces(watch=False)
         case "Deployments":
             ret = appsV1.list_deployment_for_all_namespaces(watch=False)
-        # case "configmaps":
-        #     print("configmaps")
+        case "ConfigMaps":
+            ret = v1.list_config_map_for_all_namespaces(watch=False)
+        case "Secrets":
+            ret = v1.list_secret_for_all_namespaces(watch=False)
+        case "Daemonsets":
+            ret = appsV1.list_daemon_set_for_all_namespaces(watch=False)
         case _:
             print("Resouce Type NOT IMPLEMETED")
     resouceMapping[resourceType]['data'] = ret.items
@@ -105,9 +182,10 @@ def loadTable(table, resourceType):
 
 def populateResourceTypeList():
     resouceTypeWidget = window.resourceTypeList
-    QListWidgetItem("Pods", resouceTypeWidget);
-    QListWidgetItem("Deployments", resouceTypeWidget);
-    # QListWidgetItem("ConfigMaps", resouceTypeWidget);
+
+    for res in resouceMapping:
+        print(res)
+        QListWidgetItem(res, resouceTypeWidget);
 
     # in the end - connect to a change event
     window.resourceTypeList.currentTextChanged.connect(repopulateTable)
