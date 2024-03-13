@@ -2,8 +2,8 @@ import sys
 import datetime as dt
 from humanize import naturaldelta
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import (QApplication, QTableWidget,
-                               QTableWidgetItem, QListWidgetItem)
+from PySide6.QtWidgets import (QApplication, QTableWidget, QMainWindow,
+                               QTableWidgetItem, QListWidgetItem, QCheckBox)
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile
 from kubernetes import client, config
@@ -117,18 +117,20 @@ def repopulateTable(resourceType):
     loadTable(window.resourceTable, resourceType)
 
 def populateTable(index):
-    currNamespace = window.namespaces.currentText()
+    currNamespace: str = window.namespaces.currentText()
 
-    table = window.resourceTable
+    table: QTableWidget = window.resourceTable
     resourceType = window.resourceTypeList.currentItem().text()
     # print(f"Page: {resourceType}, NS Index: {index}")
     # print(f"Page: { (resouceMapping[resourceType]).get('columns')}")
     colNames = [ col['name'] for col in (resouceMapping[resourceType]).get('columns')] 
-    table.setColumnCount(len(colNames))
+    table.setColumnCount(1+len(colNames)) # one column for checkbox
+    colNames.insert(0, "Select") # TODO - can we convert this into a checkbox as well? https://forum.qt.io/topic/15084/solved-pyside-1-1-0-putting-a-checkbox-in-horizontalheader-of-qtablewidget/3
     # TODO: default column width also move to mapping
-    table.setColumnWidth(1, 340)
+    table.setColumnWidth(2, 340)
     table.setRowCount(0)
     table.setHorizontalHeaderLabels(colNames)
+
     # TODO: QTableView is probably better for structured data but needs to define model.
 
     if currNamespace != "ALL":
@@ -137,14 +139,21 @@ def populateTable(index):
         filterdList = resouceMapping[resourceType]['data']
     table.setRowCount(len(filterdList))
 
-    if resourceType == "Daemonsets":
-        print(f"about to enumerate {filterdList[0]}")
+    # if resourceType == "Daemonsets":
+    #     print(f"about to enumerate {filterdList[0]}")
 
     for idx, item in enumerate(filterdList):
         # print(f"item ns? {eval('item.metadata.namespace')}" )
+        # Add checkbox column
+        # TODO: how to center it https://falsinsoft.blogspot.com/2013/11/qtablewidget-center-checkbox-inside-cell.html
+        chkBoxItem = QCheckBox()
+        # chkBoxItem.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled)
+        # chkBoxItem.setCheckState(QtCore.Qt.Unchecked)       
+        table.setCellWidget(idx,0,chkBoxItem)
+        # add data columns
         for colIndex, x in enumerate((resouceMapping[resourceType]).get('columns')):
             # print(f"{idx}, {colIndex}, {x}")
-            table.setItem(idx, colIndex, QTableWidgetItem(str(eval(x['accessor']))))
+            table.setItem(idx, colIndex+1, QTableWidgetItem(str(eval(x['accessor']))))
     table.setSortingEnabled(True)
 
 def loadNS():
@@ -201,7 +210,12 @@ if __name__ == "__main__":
     loader = QUiLoader()
     # Note: Application must be created AFTER QUiLoader
     app = QApplication(sys.argv)
-    window = loader.load(ui_file, None)
+    window: QMainWindow = loader.load(ui_file, None)
+    avGeom = app.primaryScreen().geometry()
+    # print(f"{avGeom}")
+    window.setGeometry(avGeom)
+    window.setWindowTitle("Kuboculus - Control all your Kubernetes clusters from one app!")
+    
     print("Loading the ui file into runtime completed")
     ui_file.close()
     if not window:

@@ -17,7 +17,7 @@ This is an absolute beginner attempt at such a tool right now. Lets make it bett
 ## Setup
 
 1. setup venv
-1. pip install pyside6 kubernetes
+1. pip install pyside6 kubernetes humanize
 1. (optional) vscode with python plugin and .venv environment
 
 ## Run
