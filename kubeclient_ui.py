@@ -8,8 +8,24 @@ from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile
 from kubernetes import client, config
 
-#TODO: the global variable means we can only have one call at a time?
-# We should have a tuple .. Name of column and mapped attribute so that whole process can become dynamic
+def nodeRole(labels: dict) -> str:
+    roleLabel = next((label for label in labels.keys() if label.startswith("node-role.kubernetes.io/")),"")
+    return roleLabel.removeprefix("node-role.kubernetes.io/")
+
+def nodeTaintCount(taints: list) -> int:
+    if not taints:
+        return 0
+    else:
+        return len(taints)
+
+def nodeStatus(conditions: list) -> str:
+    cond: dict = next((cond for cond in conditions if cond.type == "Ready"), None)
+    # print(f"{cond}")
+    if cond and cond.status == 'True':
+        return "Ready"
+    return "NOTIMPL"   # TODO - figure out Nonready, Cordoned etc etc conditions!
+
+
 resouceMapping = {
     "Pods": {
         "columns": [
@@ -82,24 +98,206 @@ resouceMapping = {
             }],
         "data": []
     },
-    "Daemonsets": {
+    "Nodes": {
         "columns": [
             {
-                "name": "Namespace",
-                "accessor": "item.metadata.namespace"
-            }, {
                 "name": "Name",
                 "accessor": "item.metadata.name"
             }, {
-                "name": "Node Selector",
-                "accessor": "item.spec.template.spec.node_selector"
+                "name": "Taints",
+                "accessor": "nodeTaintCount(item.spec.taints)"
+            }, {
+                "name": "Roles",
+                "accessor": "nodeRole(item.metadata.labels)"
+            }, {
+                "name": "Version",
+                "accessor": "item.status.node_info.kubelet_version"
+            }, {
+                "name": "Conditions",
+                "accessor": "nodeStatus(item.status.conditions)"
             }, {
                 "name": "Age",
                 "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
             }],
         "data": []
-    }
+    },
+    "ServiceAccounts": {
+        "columns": [
+            {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
+        "data": []
+    },
+    "Services": {
+        "columns": [
+            {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
+        "data": []
+    },
+    "PersistentVolumes": {
+        "columns": [
+            {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
+        "data": []
+    },
+    "PersistentVolumeClaims": {
+        "columns": [
+            {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
+        "data": []
+    },
+    "Events": {
+        "columns": [
+            {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
+        "data": []
+    },
+    "ReplicaSets": {
+        "columns": [
+            {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
+        "data": []
+    },
+    "StatefulSets": {
+        "columns": [
+            {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
+        "data": []
+    },
+    "HorizontalPodAutoscalers": {
+        "columns": [
+            {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
+        "data": []
+    },
+    "Cronjobs": {
+        "columns": [
+            {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
+        "data": []
+    },
+    "Jobs": {
+        "columns": [
+            {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
+        "data": []
+    },
+    "Ingresses": {
+        "columns": [
+            {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
+        "data": []
+    },
+    "IngresseClasses": {
+        "columns": [
+            {
+                "name": "Name",
+                "accessor": "item.metadata.name"
+            }, {
+                "name": "Age",
+                "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }],
+        "data": []
+    },
 }
+
+# Other Main API resource types to add:
+# Add respective column definition for those resource types already added
+# coreV1
+#     endpoints
+#     events
+#     persistentvolumeclaims
+#     persistentvolumes
+#     nodes
+#     serviceaccounts
+#     services
+
+# admissionregistration.k8s.io/v1
+#     mutatingwebhookconfigurations
+#     validatingwebhookconfigurations
+
+# appsV1
+#     replicasets
+#     statefulsets
+
+# autoscaling/v2
+#     horizontalpodautoscalers
+
+# batch/v1
+#     cronjobs
+#     jobs
+
+# networking.k8s.io/v1
+#     ingressclasses
+#     ingresses
+#     networkpolicies
+
+# policy/v1
+#     poddisruptionbudgets
+
+# rbac.authorization.k8s.io/v1
+#     clusterrolebindings
+#     clusterroles
+#     rolebindings
+#     roles
+
+# storage.k8s.io/v1
+#     storageclasses
+#     volumeattachments
 
 # Relevant pod columns and their mapping
 #Labels[]: .metadata.labels
@@ -110,7 +308,7 @@ resouceMapping = {
 # OR Status:  container_statuses[0].ready / started
 namespaces = []
 
-# AGE calculation = https://github.com/kubernetes/apimachinery/blob/release-1.29/pkg/util/duration/duration.go#L48
+# TODO AGE calculation same as kubectl => https://github.com/kubernetes/apimachinery/blob/release-1.29/pkg/util/duration/duration.go#L48
 
 def repopulateTable(resourceType):
     print(f"list selection changed to {resourceType}")
@@ -151,9 +349,12 @@ def populateTable(index):
         # chkBoxItem.setCheckState(QtCore.Qt.Unchecked)       
         table.setCellWidget(idx,0,chkBoxItem)
         # add data columns
-        for colIndex, x in enumerate((resouceMapping[resourceType]).get('columns')):
-            # print(f"{idx}, {colIndex}, {x}")
-            table.setItem(idx, colIndex+1, QTableWidgetItem(str(eval(x['accessor']))))
+        try:
+            for colIndex, x in enumerate((resouceMapping[resourceType]).get('columns')):
+                # print(f"{idx}, {colIndex}, {x}")
+                table.setItem(idx, colIndex+1, QTableWidgetItem(str(eval(x['accessor']))))
+        except KeyError:
+            print(f"No proper data for accessor {x['accessor']} while evaluating value for col no {colIndex+1} for row {idx} for resourceType {resourceType}")
     table.setSortingEnabled(True)
 
 def loadNS():
@@ -166,12 +367,17 @@ def loadNS():
     window.namespaces.addItems(nsIter)
     window.namespaces.currentIndexChanged.connect(populateTable)
 
-
 def loadTable(table, resourceType):
     global resouceMapping
     table.setEditTriggers(QTableWidget.NoEditTriggers)
     v1 = client.CoreV1Api()
     appsV1 = client.AppsV1Api()
+    autoscalingV2 = client.AutoscalingV2Api()
+    batchV1 = client.BatchV1Api()
+    networkingV1 = client.NetworkingV1Api()
+    policyV1 = client.PolicyV1Api()
+    rbacV1 = client.RbacAuthorizationV1Api()
+    storageV1 = client.StorageV1Api()
 
     match resourceType:
         case "Pods":
@@ -184,6 +390,32 @@ def loadTable(table, resourceType):
             ret = v1.list_secret_for_all_namespaces(watch=False)
         case "Daemonsets":
             ret = appsV1.list_daemon_set_for_all_namespaces(watch=False)
+        case "Nodes":
+            ret = v1.list_node(watch=False)
+        case "ServiceAccounts":
+            ret = v1.list_service_account_for_all_namespaces(watch=False)
+        case "Services":
+            ret = v1.list_service_for_all_namespaces(watch=False)
+        case "PersistentVolumes":
+            ret = v1.list_persistent_volume(watch=False)
+        case "PersistentVolumeClaims":
+            ret = v1.list_persistent_volume_claim_for_all_namespaces(watch=False)
+        case "Events":
+            ret = v1.list_event_for_all_namespaces(watch=False)
+        case "ReplicaSets":
+            ret = appsV1.list_replica_set_for_all_namespaces(watch=False)
+        case "StatefulSets":
+            ret = appsV1.list_stateful_set_for_all_namespaces(watch=False)
+        case "HorizontalPodAutoscalers":
+            ret = autoscalingV2.list_horizontal_pod_autoscaler_for_all_namespaces(watch=False)
+        case "Cronjobs":
+            ret = batchV1.list_cron_job_for_all_namespaces(watch=False)
+        case "Jobs":
+            ret = batchV1.list_job_for_all_namespaces(watch=False)
+        case "Ingresses":
+            ret = networkingV1.list_ingress_for_all_namespaces(watch=False)
+        case "IngressClasses":
+            ret = networkingV1.list_ingress_class(watch=False)
         case _:
             print("Resouce Type NOT IMPLEMETED")
     resouceMapping[resourceType]['data'] = ret.items
@@ -226,6 +458,7 @@ if __name__ == "__main__":
     window.show()
 
     # kube api access
+    # TODO - allow choosing file using FileChooser
     config.load_kube_config(config_file='./kind.kubeconfig')
 
     loadNS()
