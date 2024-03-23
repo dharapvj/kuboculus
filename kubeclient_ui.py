@@ -25,6 +25,28 @@ def nodeStatus(conditions: list) -> str:
         return "Ready"
     return "NOTIMPL"   # TODO - figure out Nonready, Cordoned etc etc conditions!
 
+def svcPorts(ports: list) -> str:
+    ports=[f"{p.port}:{p.name}/{p.protocol}" for p in ports]
+    # print(','.join(ports,))
+    return ','.join(ports)
+
+def svcExtIp(status: dict) -> str:
+    if status.load_balancer and status.load_balancer.ingress:
+        return status.load_balancer.ingress[0].ip
+    return "-"
+
+# TODO - see how we can respond back with some UI elements instead of strings
+def svcSelectors(selectors: dict) -> str:
+    # print(type(selectors))
+    if selectors:
+        sels=[f"{k}={v}" for k,v in selectors.items()]
+        return ','.join(sels)
+    return ""
+
+def svcStatus(svcType: str, status: dict) -> str:
+    if svcType == "LoadBalancer" and (not status.load_balancer.ingress or not status.load_balancer.ingress[0].ip) :
+        return "Pending"
+    return "Active"
 
 resouceMapping = {
     "Pods": {
@@ -135,11 +157,32 @@ resouceMapping = {
     "Services": {
         "columns": [
             {
+                "name": "Namespace",
+                "accessor": "item.metadata.namespace"
+            }, {
                 "name": "Name",
                 "accessor": "item.metadata.name"
             }, {
+                "name": "Type",
+                "accessor": "item.spec.type"
+            }, {
+                "name": "Cluster IP",
+                "accessor": "item.spec.cluster_ip"
+            }, {
+                "name": "Ports",
+                "accessor": "svcPorts(item.spec.ports)"
+            }, {
+                "name": "External IP",
+                "accessor": "svcExtIp(item.status)"
+            }, {
+                "name": "Selectors",
+                "accessor": "svcSelectors(item.spec.selector)"
+            }, {
                 "name": "Age",
                 "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
+            }, {
+                "name": "Status",
+                "accessor": "svcStatus(item.spec.type, item.status)"
             }],
         "data": []
     },
