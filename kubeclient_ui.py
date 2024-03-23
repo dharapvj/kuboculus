@@ -48,6 +48,22 @@ def svcStatus(svcType: str, status: dict) -> str:
         return "Pending"
     return "Active"
 
+def ingLoadBalancers(status: dict) -> str:
+    if status.load_balancer and status.load_balancer.ingress:
+        return ','.join([i.ip for i in status.load_balancer.ingress]) 
+    return "-"
+
+def ingRules(rules: list) -> str:
+    hosts =[]
+    for r in rules:
+        host = r.host
+        for p in r.http.paths:
+            hosta = host+p.path
+            backend = f"{p.backend.service.name}:{p.backend.service.port.number}"
+            hosts.append(f"{hosta} -> {backend}")
+    hosts = [f"{h}" for h in hosts]
+    return ",".join(hosts)
+
 resouceMapping = {
     "Pods": {
         "columns": [
@@ -277,8 +293,17 @@ resouceMapping = {
     "Ingresses": {
         "columns": [
             {
+                "name": "Namespace",
+                "accessor": "item.metadata.namespace"
+            }, {
                 "name": "Name",
                 "accessor": "item.metadata.name"
+            }, {
+                "name": "Load Balancers",
+                "accessor": "ingLoadBalancers(item.status)"
+            }, {
+                "name": "Rules",
+                "accessor": "ingRules(item.spec.rules)"
             }, {
                 "name": "Age",
                 "accessor": "naturaldelta(dt.datetime.now(dt.timezone.utc) - item.metadata.creation_timestamp)"
@@ -297,6 +322,8 @@ resouceMapping = {
         "data": []
     },
 }
+
+# Some good inspirations in this folder: https://github.com/lensapp/lens/blob/master/packages/kube-object/src/specifics/
 
 # Other Main API resource types to add:
 # Add respective column definition for those resource types already added
@@ -342,13 +369,6 @@ resouceMapping = {
 #     storageclasses
 #     volumeattachments
 
-# Relevant pod columns and their mapping
-#Labels[]: .metadata.labels
-#Annotations[]: .metadata.annotations
-#Containers[]: .spec.containers
-#InitContainers[]: .spec.init_containers
-#Status??: .status.phase - Can also monitor the .status.conditions[]
-# OR Status:  container_statuses[0].ready / started
 namespaces = []
 
 # TODO AGE calculation same as kubectl => https://github.com/kubernetes/apimachinery/blob/release-1.29/pkg/util/duration/duration.go#L48
