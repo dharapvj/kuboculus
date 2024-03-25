@@ -1,8 +1,7 @@
 import sys
 import datetime as dt
 from humanize import naturaldelta
-from PySide6.QtGui import QColor
-from PySide6.QtWidgets import (QApplication, QTableWidget, QMainWindow,
+from PySide6.QtWidgets import (QApplication, QTableWidget, QMainWindow, QFileDialog, QComboBox, QListWidget,
                                QTableWidgetItem, QListWidgetItem, QCheckBox)
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile
@@ -422,13 +421,21 @@ def populateTable(index):
 
 def loadNS():
     global namespaces
-    window.namespaces.addItems(["ALL"])
+    nsWidget: QComboBox = window.namespaces
+    nsWidget.addItems(["ALL"])
     v1 = client.CoreV1Api()
     ret = v1.list_namespace(watch=False)
     namespaces = ret.items
     nsIter = map(lambda ns: ns.metadata.name, namespaces)
-    window.namespaces.addItems(nsIter)
-    window.namespaces.currentIndexChanged.connect(populateTable)
+    nsWidget.addItems(nsIter)
+    idx = nsWidget.findText("default")
+    nsWidget.setCurrentIndex(idx)
+    nsWidget.currentIndexChanged.connect(populateTable)
+    # now with kubeconfig available, we can also try loading the data
+    window.resourceTypeList.currentTextChanged.connect(repopulateTable)
+    # force repopulation
+    resTypeList: QListWidget = window.resourceTypeList
+    resTypeList.currentTextChanged.emit(resTypeList.currentItem().text())
 
 def loadTable(table, resourceType):
     global resouceMapping
@@ -488,12 +495,18 @@ def populateResourceTypeList():
     resouceTypeWidget = window.resourceTypeList
 
     for res in resouceMapping:
-        print(res)
+        # print(res)
         QListWidgetItem(res, resouceTypeWidget);
 
-    # in the end - connect to a change event
-    window.resourceTypeList.currentTextChanged.connect(repopulateTable)
-
+def loadKubeConfig():
+    filename, ok = QFileDialog.getOpenFileName(
+        window,
+        "Select a Kubeconfig File",
+        "."
+    )
+    if filename:
+        config.load_kube_config(config_file = filename)
+        loadNS()
 
 if __name__ == "__main__":
     ui_file_name = "trial-screen.ui"
@@ -518,12 +531,13 @@ if __name__ == "__main__":
         sys.exit(-1)
 
     populateResourceTypeList()
+    window.actionLoad_Kubeconfig.triggered.connect(loadKubeConfig)
     window.show()
 
     # kube api access
     # TODO - allow choosing file using FileChooser
-    config.load_kube_config(config_file='./kind.kubeconfig')
+    # config.load_kube_config(config_file='./kind.kubeconfig')
+    # loadNS()
 
-    loadNS()
     sys.exit(app.exec())
 
